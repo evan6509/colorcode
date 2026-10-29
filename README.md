@@ -32,7 +32,7 @@ Defaults for the supplied environment:
 - Kotlin compiler and JUnit/Hamcrest: existing Gradle caches. Override `KOTLIN_LIB_DIR` if necessary.
 - The SDK fallback uses the newer cached compiler with language/metadata 2.2, API 2.0 and a compatible cached Kotlin 2.0 runtime (`KOTLIN_STDLIB_JAR` can override it). This avoids the installed D8's inability to parse Kotlin 2.4 metadata. The older cached compiler itself cannot run on JDK 25.
 
-The normal Gradle project uses Gradle 8.13, AGP 8.13.0 and Kotlin 2.2.21. Normal commands are `./gradlew --offline :core:test :app:assembleDebug`; use these only when the wrapper distribution and dependencies are cached. The latest sandbox attempt used the preinstalled pinned Gradle 8.13 and supplied JDK 17 with local dependency caches. It failed before project configuration because the file-lock service could not determine a usable wildcard IP. No network workaround was attempted; Gradle tasks have not run. The independent installed-SDK build succeeds. See [build evidence](evidence/README.md).
+The normal Gradle project uses Gradle 8.13, AGP 8.13.0 and Kotlin 2.2.21. Normal commands are `./gradlew --offline :core:test :app:assembleDebug`; use these only when the wrapper distribution and dependencies are cached. An independent offline Gradle run of `:core:test :app:testDebugUnitTest :app:assembleDebug` succeeded after the review fixes. Earlier sandbox attempts encountered a file-lock networking error; the separate installed-SDK build also succeeded. See [build evidence](evidence/README.md).
 
 ## Measured payload density
 
@@ -60,4 +60,4 @@ Automated tests cover all original 24 cases, capacity edges, empty/Unicode/NUL/a
 
 The actual Android sources compile, resources link, dex is generated, and APK signatures verify. The APK has **not** been installed or run on an emulator or phone. The retained-work and camera-matching helpers pass JVM regressions; actual activity lifecycle, permission/file-picker/share flows, camera preview orientation/focus/capture and device image processing still need device testing. No camera or printer reliability, color-blind accessibility, low-light performance, general arbitrary-scene recognition or standard QR interoperability is claimed. Structural markers are checked strictly; RS protects data and header bytes, not damaged finders. See [device test steps](docs/DEVICE-TESTS.md).
 
-All prior files and red-test evidence are preserved. Changes are deliberately uncommitted; no Git staging, commit, push, publication, installation or server changes were performed.
+Build and test evidence is preserved under `evidence/`.
