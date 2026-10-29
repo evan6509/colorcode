@@ -1,0 +1,25 @@
+Shell syntax: PASS
+Manifest permissions: ['android.permission.CAMERA']
+All 28 snapshotted pre-existing files still present
+Original evidence logs: 14 files byte-for-byte unchanged
+Source/script/documentation changes:
+  README.md
+  app/build.gradle.kts
+  app/src/main/kotlin/dev/colorcode/app/CameraActivity.kt
+  app/src/main/kotlin/dev/colorcode/app/CameraFiles.kt
+  app/src/main/kotlin/dev/colorcode/app/CaptureMatcher.kt
+  app/src/main/kotlin/dev/colorcode/app/MainActivity.kt
+  app/src/main/kotlin/dev/colorcode/app/RetainedWork.kt
+  app/src/main/kotlin/dev/colorcode/app/ShareProvider.kt
+  app/src/main/kotlin/dev/colorcode/app/SharedPngStore.kt
+  app/src/test/kotlin/dev/colorcode/app/CameraFilesTest.kt
+  app/src/test/kotlin/dev/colorcode/app/CaptureMatcherTest.kt
+  app/src/test/kotlin/dev/colorcode/app/RetainedWorkTest.kt
+  app/src/test/kotlin/dev/colorcode/app/SharedPngStoreTest.kt
+  docs/DEVICE-TESTS.md
+  evidence/README.md
+  scripts/test-app-host.sh
+afe284497949325b57094f1d3abbab11a7476a7317439043fdf6a0cc66427226 app/src/main/AndroidManifest.xml
+255c058baa51bf058017b86721fb1d798c38cbe22fdeb4058ecba9f046a0aa16 core/src/main/kotlin/dev/colorcode/core/ColorCode.kt
+46286ff4fe12475fb73caf0a6ac5c2a552ea757ee86d3ed3d3aabbd5691039c7 app/build/sdk-offline/colorcode-debug.apk
+6d12445d03ada92ad00a823b845acea5fb2d909f4314bfff4a2d3fe4f4be526b app/build/sdk-offline/classes.jar

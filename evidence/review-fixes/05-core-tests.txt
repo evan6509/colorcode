@@ -1,0 +1,24 @@
+JUnit version 4.13.2
+................................................
+Time: 1.106
+
+OK (48 tests)
+
+Fresh process encoded 588 bytes to core/build/offline/fresh.png (520x520)
+Fresh process decoded 588 exact bytes; corrected=0
+ColorCode v1 density measurement
+Same module pitch (8 pixels) and four-module quiet zone on every side.
+QR reference: standard byte mode, level L, no ECI; bit-budget boundary tested.
+No standard QR image encoder/decoder is cached; QR optical round trips were NOT measured.
+grid | pixels | color bytes | QR-L bytes | ratio | color parity/stream | QR parity/stream
+57 | 520×520 | 599 | 271 | 2.210× | 96/711 (13.50%) | 72/346 (20.81%)
+  PNG capacity-57.png: 37242 file bytes; SHA-256 payload 41c1b363e1aeffb1b189679417e99dbc63d9f7160c2c50e2b118a3d2c3db8b4e; exact round trip PASS
+89 | 776×776 | 1591 | 718 | 2.216× | 256/1863 (13.74%) | 180/901 (19.98%)
+  PNG capacity-89.png: 87270 file bytes; SHA-256 payload 109fd7b34f1b5acf6ec82a6351fe4da50b2e57d67bf9aedd251600004fb27310; exact round trip PASS
+129 | 1096×1096 | 3484 | 1528 | 2.280× | 512/4012 (12.76%) | 390/1921 (20.30%)
+  PNG capacity-129.png: 178476 file bytes; SHA-256 payload 6a3e033a7e7dafeac9cd64afbea951e1ae63dde34460e7b9fc5dc8f718e12f4a; exact round trip PASS
+Different ECC budgets: color RS corrects <=16 unknown byte errors per block; QR-L here <=9/15/15 per block.
+Parity percentages do not establish equal optical robustness. Two-bit color decisions need distinguishable chroma.
+PNG file length is NOT payload density. No compression, network fetch, base64 expansion or external payload store.
+Reference tables for independent checking: https://www.qrcode.com/en/about/version.html
+QR values are pinned reference inputs; this offline run did not fetch or independently encode a complete QR symbol.

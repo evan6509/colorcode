@@ -1,0 +1,130 @@
+===== SharedPngStore.kt =====
+package dev.colorcode.app
+
+import java.io.File
+import java.io.FileNotFoundException
+import java.io.OutputStream
+import java.util.UUID
+
+/** Android-independent storage boundary used by the share UI and provider. */
+internal class SharedPngStore(
+    private val root: File,
+    private val clock: () -> Long = System::currentTimeMillis,
+    private val nextToken: () -> String = { UUID.randomUUID().toString().replace("-", "") }
+) {
+    fun create(write: (OutputStream) -> Unit): String {
+        root.mkdirs()
+        File(root, "shared-colorcode.png").outputStream().use(write)
+        return "content://$AUTHORITY/shared-colorcode.png"
+    }
+
+    fun resolve(uri: String): File {
+        if (uri != "content://$AUTHORITY/shared-colorcode.png") throw FileNotFoundException()
+        return File(root, "shared-colorcode.png")
+    }
+
+    fun cleanup(revoke: (String) -> Unit) {}
+
+    companion object {
+        const val AUTHORITY = "dev.colorcode.app.share"
+        const val LIFETIME_MS = 7L * 24 * 60 * 60 * 1000
+    }
+}
+
+===== RetainedWork.kt =====
+package dev.colorcode.app
+
+import java.util.ArrayDeque
+
+/** All methods except the supplied task run on the owner/dispatch thread. */
+internal class RetainedWork<O : Any>(
+    private val execute: (() -> Unit) -> Unit,
+    private val dispatch: (() -> Unit) -> Unit,
+    private val changed: O.(String?) -> Unit,
+    private val stop: () -> Unit = {}
+) {
+    private interface Delivery<O> { fun deliver(owner: O); fun discard() }
+    private var owner: O? = null
+    @Volatile private var closed = false
+    private val messages = ArrayDeque<String>()
+    private val ready = ArrayDeque<Delivery<O>>()
+
+    fun attach(value: O) {
+        check(!closed)
+        owner = value
+        while (ready.isNotEmpty()) finish(ready.removeFirst())
+        changed(value, messages.peekFirst())
+    }
+
+    fun detach(value: O) { if (owner === value) owner = null }
+
+    fun <T> submit(message: String, task: () -> T, done: O.(T) -> Unit,
+                   failed: O.(Exception) -> Unit, discard: (T) -> Unit = {}) {
+        check(!closed)
+        messages.addLast(message)
+        owner?.let { changed(it, messages.peekFirst()) }
+        execute {
+            if (!closed) {
+                val delivery = try {
+                    val value = task()
+                    object : Delivery<O> {
+                        override fun deliver(owner: O) = done(owner, value)
+                        override fun discard() = discard(value)
+                    }
+                } catch (e: Exception) {
+                    object : Delivery<O> {
+                        override fun deliver(owner: O) = failed(owner, e)
+                        override fun discard() {}
+                    }
+                }
+                dispatch {
+                    if (closed) delivery.discard()
+                    else finish(delivery)
+                }
+            }
+        }
+    }
+
+    private fun finish(delivery: Delivery<O>) {
+        messages.pollFirst()
+        val target = owner
+        if (target != null) {
+            changed(target, messages.peekFirst())
+            delivery.deliver(target)
+        } else delivery.discard()
+    }
+
+    fun close() {
+        closed = true; owner = null
+        while (ready.isNotEmpty()) ready.removeFirst().discard()
+        messages.clear()
+        stop()
+    }
+}
+
+===== CaptureMatcher.kt =====
+package dev.colorcode.app
+
+/** Pairs request callbacks and JPEGs independently of their callback order. Camera-thread confined. */
+internal class CaptureMatcher<T> {
+    data class Match<T>(val request: Long, val value: T)
+    private var sequence = 0L
+    private var active: Long? = null
+
+    fun begin(): Long {
+        check(active == null)
+        return (++sequence).also { active = it }
+    }
+    fun isPending(request: Long) = active == request
+    fun cancel(request: Long): Boolean {
+        if (!isPending(request)) return false
+        active = null
+        return true
+    }
+    fun started(request: Long, timestamp: Long): Match<T>? = null
+    fun frame(timestamp: Long, value: T): Match<T>? {
+        val request = active ?: return null
+        active = null
+        return Match(request, value)
+    }
+}

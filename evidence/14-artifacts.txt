@@ -1,0 +1,7 @@
+APK ZIP manifest/resources/dex verified: app/build/sdk-offline/colorcode-debug.apk (754137 bytes)
+APK SHA-256: ac3789e4f254a824da240dfe83605335c04f8c1b13572c18ef814d3f05a90b82
+Original evidence/01-core-red.txt SHA-256: 0f4cac768becff5607e49f14599352ace52b687260c1fe25798889a3bf72cda2
+core/build/offline/capacity-57.png: 37242 bytes; SHA-256 758fbf0757d33633b02d62fa4e15630ce1b335f1b0f3595c760642f128c2ec10
+core/build/offline/capacity-89.png: 87270 bytes; SHA-256 e065cd4e18feb17b1127aa270e906b3ff8dc60f2d11d9b4cdcbd244660df161f
+core/build/offline/capacity-129.png: 178476 bytes; SHA-256 402f4b68b873ac86052991fb5823b1aec2462f4cbb9525d0b742de2292c35d8a
+No emulator/device execution, APK installation or print/camera reliability testing performed.

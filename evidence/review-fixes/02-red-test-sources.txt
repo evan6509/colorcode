@@ -1,0 +1,211 @@
+===== SharedPngStoreTest.kt (initial 16-test suite) =====
+package dev.colorcode.app
+
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
+import java.io.FileNotFoundException
+import java.nio.file.Files
+
+class SharedPngStoreTest {
+    @get:Rule val temporary = TemporaryFolder()
+    private fun rejects(block: () -> Unit) {
+        try { block(); fail("Expected FileNotFoundException") } catch (_: FileNotFoundException) {}
+    }
+
+    @Test fun firstSharedUriStillReadsFirstBytesAfterSecondShare() {
+        val store = SharedPngStore(temporary.newFolder())
+        val first = store.create { it.write(byteArrayOf(1, 2, 3)) }
+        val second = store.create { it.write(byteArrayOf(4, 5, 6)) }
+        assertNotEquals(first, second)
+        assertArrayEquals(byteArrayOf(1, 2, 3), store.resolve(first).readBytes())
+        assertArrayEquals(byteArrayOf(4, 5, 6), store.resolve(second).readBytes())
+        assertTrue(first.matches(Regex("content://dev\\.colorcode\\.app\\.share/[a-f0-9]{32}\\.png")))
+    }
+
+    @Test fun traversalAndUntrustedUriFormsAreRejected() {
+        val store = SharedPngStore(temporary.newFolder())
+        val good = store.create { it.write(1) }
+        val name = good.substringAfterLast('/')
+        listOf("../secret", "%2e%2e/secret", "%252e%252e%252fsecret", "/$name", "$name/../$name", "$name%2f..", "..\\secret").forEach {
+            rejects { store.resolve("content://${SharedPngStore.AUTHORITY}/$it") }
+        }
+        listOf(good + "?x=y", good + "#x", good.replace("content:", "file:"),
+            good.replace(SharedPngStore.AUTHORITY, "evil.example"),
+            good.replace(SharedPngStore.AUTHORITY, "user@${SharedPngStore.AUTHORITY}"),
+            good.replace(SharedPngStore.AUTHORITY, "${SharedPngStore.AUTHORITY}:80"),
+            good.replace(".png", "%2epng")).forEach { bad -> rejects { store.resolve(bad) } }
+    }
+
+    @Test fun symlinkCannotEscapePrivateRoot() {
+        val store = SharedPngStore(temporary.newFolder())
+        val uri = store.create { it.write(1) }
+        val file = store.resolve(uri)
+        val secret = temporary.newFile().apply { writeText("private") }
+        assertTrue(file.delete())
+        Files.createSymbolicLink(file.toPath(), secret.toPath())
+        rejects { store.resolve(uri) }
+    }
+
+    @Test fun collisionNeverTruncatesPublishedContent() {
+        val tokens = ArrayDeque(listOf("a".repeat(32), "a".repeat(32), "b".repeat(32)))
+        val store = SharedPngStore(temporary.newFolder(), nextToken = { tokens.removeFirst() })
+        val first = store.create { it.write(21) }
+        val second = store.create { it.write(42) }
+        assertArrayEquals(byteArrayOf(21), store.resolve(first).readBytes())
+        assertArrayEquals(byteArrayOf(42), store.resolve(second).readBytes())
+    }
+
+    @Test fun cleanupKeepsLiveSharesAndRevokesExpiredUrisBeforeDeleting() {
+        var now = 1_000_000L
+        val store = SharedPngStore(temporary.newFolder(), clock = { now })
+        val first = store.create { it.write(7) }
+        val firstFile = store.resolve(first)
+        now += SharedPngStore.LIFETIME_MS - 1
+        val second = store.create { it.write(8) }
+        store.cleanup { fail("Live URI must not be revoked") }
+        assertTrue(firstFile.exists())
+        now += 2
+        rejects { store.resolve(first) }
+        val revoked = mutableListOf<String>()
+        store.cleanup { uri -> assertTrue(firstFile.exists()); revoked.add(uri) }
+        assertEquals(listOf(first), revoked)
+        assertFalse(firstFile.exists())
+        assertArrayEquals(byteArrayOf(8), store.resolve(second).readBytes())
+    }
+
+    @Test fun failedWriteLeavesNoPublishedOrPartialFile() {
+        val root = temporary.newFolder()
+        val store = SharedPngStore(root)
+        try { store.create { it.write(1); throw java.io.IOException("full") }; fail() }
+        catch (_: java.io.IOException) {}
+        assertEquals(0, root.listFiles()!!.size)
+    }
+}
+
+===== RetainedWorkTest.kt (initial 16-test suite) =====
+package dev.colorcode.app
+
+import org.junit.Assert.*
+import org.junit.Test
+import java.util.ArrayDeque
+
+class RetainedWorkTest {
+    private class Screen { val results = mutableListOf<String>(); var busy: String? = null }
+    private val worker = ArrayDeque<() -> Unit>()
+    private val main = ArrayDeque<() -> Unit>()
+    private val work = RetainedWork<Screen>({ worker.add(it) }, { main.add(it) }, { busy = it })
+    private fun complete() { while (worker.isNotEmpty()) worker.removeFirst()(); while (main.isNotEmpty()) main.removeFirst()() }
+
+    @Test fun encodingCompletionDuringRotationReachesNewScreenExactlyOnce() {
+        val old = Screen(); work.attach(old)
+        work.submit("Encoding", { "encoded input snapshot" }, { results.add(it) }, { throw it })
+        work.detach(old)
+        complete()
+        val replacement = Screen(); work.attach(replacement)
+        assertEquals(listOf("encoded input snapshot"), replacement.results)
+        assertTrue(old.results.isEmpty())
+        work.detach(replacement); work.attach(replacement)
+        assertEquals(1, replacement.results.size)
+        assertNull(replacement.busy)
+    }
+
+    @Test fun queuedImportAndDecodeSurviveRotationBeforeWorkStarts() {
+        val old = Screen(); work.attach(old)
+        work.submit("Import", { "exact file bytes" }, { results.add(it) }, { throw it })
+        work.submit("Decode", { "verified payload" }, { results.add(it) }, { throw it })
+        work.detach(old)
+        val next = Screen(); work.attach(next)
+        assertEquals("Import", next.busy)
+        complete()
+        assertEquals(listOf("exact file bytes", "verified payload"), next.results)
+        assertTrue(old.results.isEmpty())
+        assertNull(next.busy)
+    }
+
+    @Test fun cameraInputDeletedOnlyAfterSuccessfulDeliveryToResumedScreen() {
+        val file = java.nio.file.Files.createTempFile("capture-test", ".jpg").toFile().apply { writeText("retry input") }
+        try {
+            val old = Screen(); work.attach(old)
+            work.submit("Camera", { file.readText() }, { results.add(it); file.delete() }, { throw it })
+            work.detach(old); complete()
+            assertTrue(file.exists())
+            val next = Screen(); work.attach(next)
+            assertEquals(listOf("retry input"), next.results)
+            assertFalse(file.exists())
+        } finally { file.delete() }
+    }
+
+    @Test fun failureSurvivesRotationAndPreservesRetryInput() {
+        val old = Screen(); work.attach(old)
+        work.submit("Reading", { throw java.io.IOException("retry this input") }, { _: Nothing -> fail() }, { results.add(it.message!!) })
+        work.detach(old); complete()
+        val next = Screen(); work.attach(next)
+        assertEquals(listOf("retry this input"), next.results)
+    }
+
+    @Test fun finishingDiscardsUndeliveredResources() {
+        var discarded = 0
+        work.attach(Screen())
+        work.submit("Bitmap", { 1 }, { fail("Finished owner must not receive work") }, { throw it }, { discarded += it })
+        worker.removeFirst()()
+        work.close()
+        main.removeFirst()()
+        assertEquals(1, discarded)
+    }
+}
+
+===== CaptureMatcherTest.kt (initial 16-test suite) =====
+package dev.colorcode.app
+
+import org.junit.Assert.*
+import org.junit.Test
+
+class CaptureMatcherTest {
+    @Test fun lateTimedOutJpegCannotCompleteRetry() {
+        val matcher = CaptureMatcher<String>()
+        val first = matcher.begin(); matcher.started(first, 100); matcher.cancel(first)
+        val retry = matcher.begin(); matcher.started(retry, 200)
+        assertNull(matcher.frame(100, "stale JPEG"))
+        assertTrue(matcher.isPending(retry))
+        assertEquals(CaptureMatcher.Match(retry, "retry JPEG"), matcher.frame(200, "retry JPEG"))
+    }
+
+    @Test fun imageBeforeMetadataWaitsForMatchingRequestTimestamp() {
+        val matcher = CaptureMatcher<String>()
+        val request = matcher.begin()
+        assertNull(matcher.frame(200, "current JPEG"))
+        assertEquals(CaptureMatcher.Match(request, "current JPEG"), matcher.started(request, 200))
+        assertNull(matcher.frame(200, "duplicate JPEG"))
+    }
+
+    @Test fun staleImageAndMetadataBeforeRetryMetadataAreRejected() {
+        val matcher = CaptureMatcher<String>()
+        val first = matcher.begin(); matcher.cancel(first)
+        val retry = matcher.begin()
+        assertNull(matcher.frame(100, "old"))
+        assertNull(matcher.started(first, 100))
+        assertNull(matcher.started(retry, 200))
+        assertEquals(CaptureMatcher.Match(retry, "new"), matcher.frame(200, "new"))
+    }
+
+    @Test fun oldFailureOrTimeoutCannotCancelNewRequest() {
+        val matcher = CaptureMatcher<String>()
+        val first = matcher.begin(); assertTrue(matcher.cancel(first))
+        val retry = matcher.begin()
+        assertFalse(matcher.cancel(first))
+        assertTrue(matcher.isPending(retry))
+        assertTrue(matcher.cancel(retry))
+        assertNull(matcher.frame(200, "after pause"))
+    }
+
+    @Test fun unknownTimestampFailsClosed() {
+        val matcher = CaptureMatcher<String>()
+        val request = matcher.begin()
+        assertNull(matcher.started(request, 0))
+        assertNull(matcher.frame(0, "unidentified"))
+        assertTrue(matcher.cancel(request))
+    }
+}
