@@ -80,7 +80,7 @@ class MainActivity : Activity() {
         setContentView(scroll)
         root.addView(label("ColorCode", 30, ink))
         root.addView(label("More color. More room for your data.", 16, muted))
-        root.addView(label("OFFLINE  •  FIVE DATA COLORS", 12, Color.rgb(0, 116, 104)))
+        root.addView(label("OFFLINE  •  FOUR DATA COLORS", 12, Color.rgb(0, 116, 104)))
         val tabs = row()
         tabs.addView(button("Make") { showPage(0) }, weight())
         tabs.addView(button("Read") { showPage(1) }, weight())
@@ -115,7 +115,7 @@ class MainActivity : Activity() {
         maker.addView(label("Write text or choose a small binary file. Export the result as a lossless PNG.", 15, muted))
         text = EditText(this).apply {
             hint = "Text to encode"; minLines = 3; maxLines = 8
-            filters = arrayOf(android.text.InputFilter.LengthFilter(ColorCode.MAX_FIVE_COLOR_PAYLOAD))
+            filters = arrayOf(android.text.InputFilter.LengthFilter(ColorCode.MAX_PAYLOAD))
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
             contentDescription = "UTF-8 payload text"
         }
@@ -134,7 +134,7 @@ class MainActivity : Activity() {
         maker.addView(label("Code size", 14, ink))
         size = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
-                ColorCode.grids.map { "$it × $it  •  ${ColorCode.capacity(it, ColorCode.FIVE_COLOR_VERSION)} bytes" })
+                ColorCode.grids.map { "$it × $it  •  ${ColorCode.capacity(it)} bytes" })
             contentDescription = "Grid size and maximum byte capacity"
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -142,7 +142,7 @@ class MainActivity : Activity() {
             }
         }
         maker.addView(size)
-        maker.addView(label("Blue • teal • red • yellow • magenta", 14, muted))
+        maker.addView(label("Blue • teal • red • yellow", 14, muted))
         maker.addView(button("Create code") {
             val bytes = fileBytes?.copyOf() ?: text.text.toString().toByteArray(Charsets.UTF_8)
             val grid = ColorCode.grids[size.selectedItemPosition]
@@ -156,7 +156,7 @@ class MainActivity : Activity() {
         }
         maker.addView(preview, LinearLayout.LayoutParams(-1, dp(320)))
         val exports = row()
-        savePng = button("Save PNG") { createDocument("image/png", "colorcode-v2.png", SAVE_PNG) }.apply { isEnabled = false }
+        savePng = button("Save PNG") { createDocument("image/png", "colorcode.png", SAVE_PNG) }.apply { isEnabled = false }
         sharePng = button("Share PNG") { share() }.apply { isEnabled = false }
         exports.addView(savePng, weight()); exports.addView(sharePng, weight()); maker.addView(exports)
         maker.addView(label("Custom reader required. This is not a standard QR code. Keep the white border and original colors.", 13, muted))
@@ -184,7 +184,7 @@ class MainActivity : Activity() {
     private fun updateSource() {
         if (!::counter.isInitialized) return
         val count = fileBytes?.size ?: text.text.toString().toByteArray(Charsets.UTF_8).size
-        val cap = if (::size.isInitialized) ColorCode.capacity(ColorCode.grids[size.selectedItemPosition.coerceAtLeast(0)], ColorCode.FIVE_COLOR_VERSION) else ColorCode.capacity(57, ColorCode.FIVE_COLOR_VERSION)
+        val cap = if (::size.isInitialized) ColorCode.capacity(ColorCode.grids[size.selectedItemPosition.coerceAtLeast(0)]) else ColorCode.capacity(57)
         counter.text = "$count / $cap bytes" + if (count > cap) " • choose a larger grid or less data" else ""
         counter.setTextColor(if (count > cap) Color.rgb(170, 45, 45) else muted)
         if (::source.isInitialized) source.text = if (fileBytes != null) "File: $fileName ($count bytes)" else "Text • UTF-8"
@@ -194,7 +194,7 @@ class MainActivity : Activity() {
         pngBitmap?.recycle(); pngBitmap = bitmap; madeBytes = bytes; madeGrid = grid
         preview.setImageDrawable(android.graphics.drawable.BitmapDrawable(resources, bitmap).apply { isFilterBitmap = false })
         savePng.isEnabled = true; sharePng.isEnabled = true
-        if (announce) status.text = "Created ${bytes.size} bytes • $grid × $grid • five colors. PNG is ready."
+        if (announce) status.text = "Created ${bytes.size} bytes • $grid × $grid • four colors. PNG is ready."
     }
     private fun showDecoded(value: Decoded) {
         decoded = value.bytes
@@ -227,7 +227,7 @@ class MainActivity : Activity() {
         val resolver = applicationContext.contentResolver
         when (requestCode) {
             OPEN_BINARY -> background("Opening file…", {
-                resolver.openInputStream(uri)?.use { readLimited(it, ColorCode.MAX_FIVE_COLOR_PAYLOAD) }
+                resolver.openInputStream(uri)?.use { readLimited(it, ColorCode.MAX_PAYLOAD) }
                     ?: throw CodeException("Cannot open file")
             }) { fileBytes = it; fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Binary file"; updateSource(); status.text = "File loaded. Choose a grid and create the code." }
             OPEN_IMAGE -> {
@@ -365,7 +365,7 @@ class MainActivity : Activity() {
 }
 
 private fun makeBitmap(bytes: ByteArray, grid: Int): Bitmap {
-    val raster = SquareRenderer.render(ColorCode.encode(bytes, grid, formatVersion = ColorCode.FIVE_COLOR_VERSION), 8)
+    val raster = SquareRenderer.render(ColorCode.encode(bytes, grid), 8)
     return Bitmap.createBitmap(raster.pixels, raster.width, raster.height, Bitmap.Config.ARGB_8888)
 }
 

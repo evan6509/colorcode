@@ -1,6 +1,6 @@
 # ColorCode for Android
 
-An offline Android maker and custom reader for **ColorCode v2**, a nonstandard five-color code (blue, teal, red, yellow and magenta) with a QR-like square appearance. It stores the bytes themselves, including UTF-8 text and arbitrary binary data. Standard QR readers cannot read it.
+An offline Android maker and custom reader for **ColorCode**, a nonstandard four-color code (blue, teal, red and yellow) with a QR-like square appearance. It stores the bytes themselves, including UTF-8 text and arbitrary binary data. Standard QR readers cannot read it.
 
 The app includes text/file input, explicit grid selection, byte counts, a preview, lossless PNG saving/sharing, image import, Camera2 photo acquisition, checksum-verified results, strict UTF-8 display or a hex preview, and exact binary export. The camera is a **capture-and-read** flow, not continuous scanning. It needs camera permission; file access uses Android's document picker. There is no Internet permission, backend or external payload store.
 
@@ -34,9 +34,9 @@ Defaults for the supplied environment:
 
 The normal Gradle project uses Gradle 8.13, AGP 8.13.0 and Kotlin 2.2.21. Normal commands are `./gradlew --offline :core:test :app:assembleDebug`; use these only when the wrapper distribution and dependencies are cached. An independent offline Gradle run of `:core:test :app:testDebugUnitTest :app:assembleDebug` succeeded after the review fixes. Earlier sandbox attempts encountered a file-lock networking error; the separate installed-SDK build also succeeded. See [build evidence](evidence/README.md).
 
-## Five-color codes
+## Code formats
 
-New codes include magenta as a fifth data color, using format 2 with seven base-5 modules per two protected bytes. The three grids hold **664, 1,820 and 3,998 bytes**, respectively. Save/share and previews use this format; the reader also accepts existing four-color format 1 images. Older app versions cannot read the new format. [Format 2](docs/FORMAT-V2.md) documents the palette, packing and capacity rules. Camera and printer reliability have not been verified.
+New codes use the four-color format 1. The three grids hold **599, 1,591 and 3,484 bytes**, respectively. The reader also accepts existing five-color format 2 images; [Format 2](docs/FORMAT-V2.md) documents their palette, packing and capacity rules. Camera and printer reliability have not been verified.
 
 ## Measured payload density (legacy format 1)
 
@@ -54,7 +54,7 @@ The correction budgets differ: ColorCode uses 32 parity bytes per block (16 unkn
 
 ## Format and extension
 
-[FORMAT.md](docs/FORMAT.md) specifies the module layout, byte framing, CRC, mask, interleaving, Reed–Solomon field and version rules. Both formats use **Square 1** with version-specific palettes and packing. Appearance is separate from the framing version and is protected in the header. New appearances must get new IDs and renderer/reader implementations; existing Square 1 images must retain their original meaning. Unknown versions are rejected, never silently reinterpreted. Existing core API calls default to format 1; the Android maker explicitly requests format 2.
+[FORMAT.md](docs/FORMAT.md) specifies the module layout, byte framing, CRC, mask, interleaving, Reed–Solomon field and version rules. Both formats use **Square 1** with version-specific palettes and packing. Appearance is separate from the framing version and is protected in the header. New appearances must get new IDs and renderer/reader implementations; existing Square 1 images must retain their original meaning. Unknown versions are rejected, never silently reinterpreted. Existing core API calls default to format 1; the Android maker uses format 1.
 
 The pure Kotlin `core` has no Android, AWT or third-party runtime dependency. AWT/ImageIO is used only by JVM tests. `ColorCode.encode`, `SquareRenderer.render`, and `ColorCode.decode` form the public byte-to-image-to-byte path. The reader detects four finders, solves a projective transform, calibrates four or five color patches, corrects byte errors and verifies framing/CRC before returning bytes.
 
