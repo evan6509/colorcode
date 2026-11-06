@@ -12,4 +12,4 @@ echo "Testing packaged core: $classes, runtime: $stdlib"
 # First entry wins for dev.colorcode.core production classes; test classes remain in tests.jar.
 "$JAVA_HOME/bin/java" -Djava.awt.headless=true -cp "$classes:$tests_jar:$stdlib:$junit:$hamcrest" \
     org.junit.runner.JUnitCore dev.colorcode.core.CodecTest dev.colorcode.core.ProtocolTest \
-    dev.colorcode.core.ImageReaderTest dev.colorcode.core.CapacityTest
+    dev.colorcode.core.ImageReaderTest dev.colorcode.core.CapacityTest dev.colorcode.core.FiveColorTest

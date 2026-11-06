@@ -1,5 +1,7 @@
 # ColorCode format 1 / appearance 1 (Square)
 
+This specification remains unchanged for legacy four-color images. The Android maker now uses [format 2 with five data colors](FORMAT-V2.md); the current reader supports both formats. Version-specific statements below describe format 1.
+
 This is an independent format, not QR, JAB Code or a compatible implementation of either. Coordinates below are module coordinates with a top-left origin. Arrays are row-major. All multibyte integers are unsigned big-endian unless explicitly stated. Only the listed grid sizes are valid.
 
 ## Geometry and rendering

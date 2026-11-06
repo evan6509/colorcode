@@ -13,7 +13,10 @@ internal object ImageReader {
             throw CodeException("Invalid raster bounds (maximum 4096 × 4096)")
         var lastError: CodeException? = null
         fun attempt(grid: Int, map: (Double, Double) -> Point): Decoded? {
-            return try { sample(image, grid, map) } catch (e: CodeException) { lastError = e; null }
+            for (version in 1..2) {
+                try { return sample(image, grid, version, map) } catch (e: CodeException) { lastError = e }
+            }
+            return null
         }
         // Exact exports take this inexpensive path, including quarter turns and reflections.
         if (image.width == image.height) for (grid in ColorCode.grids) {
@@ -50,11 +53,11 @@ internal object ImageReader {
                     }
                 }
             }
-        throw CodeException("No valid ColorCode v1 found. Keep all four markers visible, sharp and in color. ${lastError?.message ?: "No four-marker geometry."}")
+        throw CodeException("No valid ColorCode found. Keep all four markers visible, sharp and in color. ${lastError?.message ?: "No four-marker geometry."}")
     }
 
-    private fun sample(image: Raster, grid: Int, map: (Double, Double) -> Point): Decoded {
-        val layout = Layout(grid)
+    private fun sample(image: Raster, grid: Int, formatVersion: Int, map: (Double, Double) -> Point): Decoded {
+        val layout = Layout(grid, formatVersion)
         fun color(x: Double, y: Double): Int {
             var r = 0; var g = 0; var b = 0
             for ((dx, dy) in offsets) {
@@ -68,29 +71,28 @@ internal object ImageReader {
             return (0xff shl 24) or ((r / 5) shl 16) or ((g / 5) shl 8) or (b / 5)
         }
         // Every black/white structural module is checked. RS protects data, not the finders.
-        for (pos in layout.fixed.indices) if (layout.fixed[pos] >= 4) {
+        for (pos in layout.fixed.indices) if (layout.fixed[pos] in 4..5) {
             val p = color(pos % grid + 0.5, pos / grid + 0.5)
             val luma = ((p shr 16 and 255) * 3 + (p shr 8 and 255) * 6 + (p and 255)) / 10
             if ((layout.fixed[pos] == 4 && luma > 100) || (layout.fixed[pos] == 5 && luma < 155))
                 throw CodeException("Finder, separator or timing pattern damaged")
         }
-        val calibration = IntArray(4) { c -> color(11.0 + 4 * c, grid - 2.0) }
+        val calibration = IntArray(layout.dataColors.size) { c -> color(11.0 + 4 * c, grid - 2.0) }
         for (p in calibration) {
             val components = intArrayOf(p shr 16 and 255, p shr 8 and 255, p and 255)
             if (components.max() - components.min() < 35) throw CodeException("Color information missing")
         }
-        for (a in 0..3) for (b in a + 1..3) if (colorDistance(calibration[a], calibration[b]) < 2500)
+        for (a in calibration.indices) for (b in a + 1 until calibration.size) if (colorDistance(calibration[a], calibration[b]) < 2500)
             throw CodeException("Calibration colors are indistinguishable")
-        // Retain palette identity: arbitrary recoloring is a future appearance, not v1.
-        val palette = SquareRenderer.palette
-        for (i in 0..3) if (colorDistance(calibration[i], palette[i]) > 15000)
+        val palette = SquareRenderer.palette(formatVersion)
+        for (i in calibration.indices) if (colorDistance(calibration[i], palette[layout.dataColors[i]]) > 15000)
             throw CodeException("Unsupported color appearance or excessive color cast")
         val cells = IntArray(grid * grid)
         for (pos in layout.positions) {
             val p = color(pos % grid + 0.5, pos / grid + 0.5)
-            cells[pos] = (0..3).minBy { colorDistance(p, calibration[it]) }
+            cells[pos] = layout.dataColors[calibration.indices.minBy { colorDistance(p, calibration[it]) }]
         }
-        return ColorCode.decodeCells(grid, cells)
+        return ColorCode.decodeCells(grid, cells, formatVersion)
     }
 
     private val offsets = arrayOf(0.0 to 0.0, -0.16 to 0.0, 0.16 to 0.0, 0.0 to -0.16, 0.0 to 0.16)

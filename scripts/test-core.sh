@@ -26,8 +26,10 @@ test_cp="core/build/offline/tests.jar:$stdlib:$junit:$hamcrest"
 printf '%s\n' "$test_cp" > core/build/offline/classpath.txt
 "$JAVA_BIN" -Djava.awt.headless=true -cp "$test_cp" org.junit.runner.JUnitCore \
   dev.colorcode.core.CodecTest dev.colorcode.core.ProtocolTest \
-  dev.colorcode.core.ImageReaderTest dev.colorcode.core.CapacityTest
+  dev.colorcode.core.ImageReaderTest dev.colorcode.core.CapacityTest dev.colorcode.core.FiveColorTest
 # Separate JVMs: no in-memory encoder object can help the decoder.
 "$JAVA_BIN" -Djava.awt.headless=true -cp "$test_cp" dev.colorcode.core.FixtureCliKt encode core/build/offline/fresh.png
 "$JAVA_BIN" -Djava.awt.headless=true -cp "$test_cp" dev.colorcode.core.FixtureCliKt decode core/build/offline/fresh.png
+"$JAVA_BIN" -Djava.awt.headless=true -cp "$test_cp" dev.colorcode.core.FixtureCliKt encode core/build/offline/fresh-v2.png 2
+"$JAVA_BIN" -Djava.awt.headless=true -cp "$test_cp" dev.colorcode.core.FixtureCliKt decode core/build/offline/fresh-v2.png 2
 "$JAVA_BIN" -Djava.awt.headless=true -cp "$test_cp" dev.colorcode.core.CapacityCliKt core/build/offline
