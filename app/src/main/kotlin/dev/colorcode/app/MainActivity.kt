@@ -130,7 +130,7 @@ class MainActivity : Activity() {
                 result.onSuccess { release ->
                     if (ReleaseUpdates.isNewer(release.tag, installed)) {
                         AlertDialog.Builder(this).setTitle("Update available")
-                            .setMessage("ColorCode ${release.tag} is available. Download it, then tap the completed download to install.")
+                            .setMessage("ColorCode ${release.tag} is available. Download it, then tap the completed download to install. Android may ask you to allow ColorCode to install apps.")
                             .setNegativeButton("Later", null)
                             .setPositiveButton("Download") { _, _ ->
                                 runCatching { ReleaseUpdates.download(this, release) }
