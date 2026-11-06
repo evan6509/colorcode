@@ -2,6 +2,8 @@ package dev.colorcode.app
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.pm.ApplicationInfo
 import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -50,6 +52,7 @@ class MainActivity : Activity() {
     private var pngBitmap: Bitmap? = null
     private var decoded: ByteArray? = null
     private var correctedBytes = 0
+    private var checkingUpdate = false
     private var page = 0
     private val ink = Color.rgb(25, 42, 61)
     private val muted = Color.rgb(82, 98, 113)
@@ -80,7 +83,11 @@ class MainActivity : Activity() {
         setContentView(scroll)
         root.addView(label("ColorCode", 30, ink))
         root.addView(label("More color. More room for your data.", 16, muted))
-        root.addView(label("OFFLINE  •  FOUR DATA COLORS", 12, Color.rgb(0, 116, 104)))
+        root.addView(label("ON-DEVICE CODES  •  FOUR DATA COLORS", 12, Color.rgb(0, 116, 104)))
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            root.addView(button("Check for updates") { checkForUpdates(manual = true) })
+            if (state == null) checkForUpdates(manual = false)
+        }
         val tabs = row()
         tabs.addView(button("Make") { showPage(0) }, weight())
         tabs.addView(button("Read") { showPage(1) }, weight())
@@ -108,6 +115,35 @@ class MainActivity : Activity() {
             }
         }
         showPage(state?.getInt("page") ?: 0)
+    }
+
+    private fun checkForUpdates(manual: Boolean) {
+        if (checkingUpdate) return
+        checkingUpdate = true
+        val installed = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+        if (manual) Toast.makeText(this, "Checking for updates…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val result = runCatching { ReleaseUpdates.fetch() }
+            runOnUiThread {
+                checkingUpdate = false
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { release ->
+                    if (ReleaseUpdates.isNewer(release.tag, installed)) {
+                        AlertDialog.Builder(this).setTitle("Update available")
+                            .setMessage("ColorCode ${release.tag} is available. Download it, then tap the completed download to install.")
+                            .setNegativeButton("Later", null)
+                            .setPositiveButton("Download") { _, _ ->
+                                runCatching { ReleaseUpdates.download(this, release) }
+                                    .onFailure { Toast.makeText(this, "Couldn't start the download.", Toast.LENGTH_LONG).show() }
+                            }.show()
+                    } else if (manual) {
+                        AlertDialog.Builder(this).setTitle("ColorCode is up to date").setPositiveButton("OK", null).show()
+                    }
+                }.onFailure {
+                    if (manual) Toast.makeText(this, "Couldn't check for updates. Check your connection and try again.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
 
     private fun buildMaker() {

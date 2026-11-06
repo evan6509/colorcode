@@ -2,7 +2,7 @@
 
 An offline Android maker and custom reader for **ColorCode**, a nonstandard four-color code (blue, teal, red and yellow) with a QR-like square appearance. It stores the bytes themselves, including UTF-8 text and arbitrary binary data. Standard QR readers cannot read it.
 
-The app includes text/file input, explicit grid selection, byte counts, a preview, lossless PNG saving/sharing, image import, Camera2 photo acquisition, checksum-verified results, strict UTF-8 display or a hex preview, and exact binary export. The camera is a **capture-and-read** flow, not continuous scanning. It needs camera permission; file access uses Android's document picker. There is no Internet permission, backend or external payload store.
+The app includes text/file input, explicit grid selection, byte counts, a preview, lossless PNG saving/sharing, image import, Camera2 photo acquisition, checksum-verified results, strict UTF-8 display or a hex preview, and exact binary export. The camera is a **capture-and-read** flow, not continuous scanning. It needs camera permission; file access uses Android's document picker. Release builds use Internet access to check GitHub for app updates and download an APK when requested. Payloads remain on-device; there is no backend or external payload store. See [release setup](.github/RELEASING.md).
 
 Each share now creates a separate immutable PNG in private app storage with a random UUID token. The provider accepts only that exact URI shape and checks filesystem containment. Share links expire after seven days; expired grants are revoked and files removed on a subsequent share. Live files are never truncated or removed by this cleanup. Use Save PNG for a permanent copy. Legacy static-filename URIs are rejected.
 

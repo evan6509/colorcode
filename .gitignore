@@ -5,3 +5,6 @@ local.properties
 *.iml
 .idea/
 captures/
+
+__pycache__/
+*.pyc

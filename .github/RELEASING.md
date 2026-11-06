@@ -1,0 +1,9 @@
+# Releases
+
+A push to `main`, including a reviewed merge, runs tests and publishes a signed APK as a GitHub release. Other branches and pull requests run checks without publishing. Keep development on `codex/development`; pushing and merging require explicit authorization.
+
+Before the first release, create and securely back up a dedicated Android signing keystore. Add these repository Actions secrets: `COLORCODE_KEYSTORE_BASE64` (the complete base64-encoded keystore), `COLORCODE_KEYSTORE_PASSWORD`, `COLORCODE_KEY_ALIAS`, `COLORCODE_KEY_PASSWORD`, and `COLORCODE_CERT_SHA256` (the colon-separated SHA-256 certificate fingerprint printed by `keytool -list -v`). Never commit the keystore or passwords. All releases must use the same signing key; losing or changing it prevents Android from installing subsequent APKs as updates. The fingerprint check detects an accidental change only if the expected fingerprint remains unchanged. Existing debug installations with a different signing key cannot be updated in place; back up data before replacing them.
+
+The first automatic release is `v0.1.0`, Android version code 1; each later release increments the patch and version code. Set `next_version` in `.github/release-version.json` to a higher semantic version to choose the next version; a previously published request is consumed automatically. Every stable release must retain its hidden version-code marker in its notes, and published version tags must remain available. Inconsistent history fails the workflow instead of silently producing an unupdatable APK. Rerunning a published commit reuses its release.
+
+The release app checks GitHub quietly when opened and has a manual check. The user chooses whether to download and must tap the completed Android download and approve installation. Debug builds do not check for updates. Internet access is used only for update checks and downloads; ColorCode payloads remain on-device.

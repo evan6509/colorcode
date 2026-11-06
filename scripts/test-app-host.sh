@@ -10,7 +10,7 @@ stdlib=$(find "$KOTLIN_LIB_DIR" -maxdepth 1 -name 'kotlin-stdlib-[0-9]*.jar' | h
 junit=$(find "$HOME/.gradle/caches/modules-2/files-2.1/junit/junit/4.13.2" -name '*.jar' | head -1)
 hamcrest=$(find "$HOME/.gradle/caches/modules-2/files-2.1/org.hamcrest/hamcrest-core/1.3" -name '*.jar' | head -1)
 mkdir -p app/build/host-tests
-mapfile -t tests < <(find app/src/test/kotlin -name '*.kt' | sort)
+mapfile -t tests < <(find app/src/test/kotlin -name '*.kt' ! -name 'ReleaseUpdatesTest.kt' | sort)
 "$JAVA_HOME/bin/java" -cp "$KOTLIN_LIB_DIR/*" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
     -no-stdlib -no-reflect -jvm-target 17 -classpath "$stdlib:$junit:$hamcrest" \
     -d app/build/host-tests/tests.jar \

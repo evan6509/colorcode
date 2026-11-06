@@ -1,0 +1,126 @@
+name: Android build and release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'publish' || github.run_id }}
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      code: ${{ steps.version.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test release numbering
+        run: python3 -m unittest discover -s scripts -p 'test_release_version.py'
+      - name: Assign release version
+        id: version
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate --slurp > "$RUNNER_TEMP/releases.json"
+          python3 scripts/release_version.py "$RUNNER_TEMP/releases.json"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test
+        run: ./gradlew --no-daemon :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Restore release signing key
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          KEY_BASE64: ${{ secrets.COLORCODE_KEYSTORE_BASE64 }}
+          COLORCODE_KEYSTORE_PASSWORD: ${{ secrets.COLORCODE_KEYSTORE_PASSWORD }}
+          COLORCODE_KEY_ALIAS: ${{ secrets.COLORCODE_KEY_ALIAS }}
+          EXPECTED_CERT_SHA256: ${{ secrets.COLORCODE_CERT_SHA256 }}
+        run: |
+          test -n "$KEY_BASE64" && test -n "$COLORCODE_KEYSTORE_PASSWORD" && test -n "$COLORCODE_KEY_ALIAS" && test -n "$EXPECTED_CERT_SHA256" || { echo 'Missing ColorCode signing secrets; see .github/RELEASING.md' >&2; exit 1; }
+          umask 077
+          printf '%s' "$KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/colorcode.jks"
+          keytool -list -v -keystore "$RUNNER_TEMP/colorcode.jks" -storepass "$COLORCODE_KEYSTORE_PASSWORD" -alias "$COLORCODE_KEY_ALIAS" | grep -F "SHA256: $EXPECTED_CERT_SHA256"
+      - name: Build signed release APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          COLORCODE_KEYSTORE_PATH: ${{ runner.temp }}/colorcode.jks
+          COLORCODE_KEYSTORE_PASSWORD: ${{ secrets.COLORCODE_KEYSTORE_PASSWORD }}
+          COLORCODE_KEY_ALIAS: ${{ secrets.COLORCODE_KEY_ALIAS }}
+          COLORCODE_KEY_PASSWORD: ${{ secrets.COLORCODE_KEY_PASSWORD }}
+        run: |
+          test -n "$COLORCODE_KEY_PASSWORD" || { echo 'Missing COLORCODE_KEY_PASSWORD' >&2; exit 1; }
+          ./gradlew --no-daemon :app:assembleRelease
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: colorcode-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 3
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check release and tag
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'create=false' >> "$GITHUB_OUTPUT"
+          else
+            if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG" && [ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" != "$GITHUB_SHA" ]; then
+              echo 'Tag points to another commit' >&2; exit 1
+            fi
+            echo 'create=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.existing.outputs.create == 'true'
+        with:
+          name: colorcode-release-apk
+          path: release
+      - name: Publish release
+        if: steps.existing.outputs.create == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_CODE: ${{ needs.build.outputs.code }}
+        run: |
+          notes_file=".github/release-notes/${RELEASE_TAG}.md"
+          if [ -f "$notes_file" ]; then
+            cp "$notes_file" release-notes.md
+          else
+            previous_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$GITHUB_SHA^" 2>/dev/null || true)
+            printf '# What’s new in %s\n\n' "${RELEASE_TAG#v}" > release-notes.md
+            if [ -n "$previous_tag" ]; then
+              git log "$previous_tag..$GITHUB_SHA" --pretty=format:'- %s' >> release-notes.md
+              printf '\n\n[Full changelog](https://github.com/%s/compare/%s...%s)\n' "$GITHUB_REPOSITORY" "$previous_tag" "$RELEASE_TAG" >> release-notes.md
+            else
+              git log "$GITHUB_SHA" --pretty=format:'- %s' >> release-notes.md
+              printf '\n' >> release-notes.md
+            fi
+          fi
+          printf '\n<!-- colorcode-version-code: %s -->\n' "$RELEASE_CODE" >> release-notes.md
+          mv release/app-release.apk "release/ColorCode-${RELEASE_TAG}.apk"
+          gh release create "$RELEASE_TAG" "release/ColorCode-${RELEASE_TAG}.apk" --repo "$GITHUB_REPOSITORY" --title "ColorCode $RELEASE_TAG" --notes-file release-notes.md --target "$GITHUB_SHA"

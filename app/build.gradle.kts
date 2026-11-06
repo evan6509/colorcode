@@ -9,8 +9,19 @@ android {
         applicationId = "dev.colorcode.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.environmentVariable("COLORCODE_VERSION_CODE").orNull?.toInt() ?: 1
+        versionName = providers.environmentVariable("COLORCODE_VERSION_NAME").orNull ?: "0.1.0"
+    }
+    signingConfigs {
+        create("published") {
+            storeFile = providers.environmentVariable("COLORCODE_KEYSTORE_PATH").orNull?.let { file(it) }
+            storePassword = providers.environmentVariable("COLORCODE_KEYSTORE_PASSWORD").orNull
+            keyAlias = providers.environmentVariable("COLORCODE_KEY_ALIAS").orNull
+            keyPassword = providers.environmentVariable("COLORCODE_KEY_PASSWORD").orNull
+        }
+    }
+    buildTypes {
+        release { signingConfig = signingConfigs.getByName("published") }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
