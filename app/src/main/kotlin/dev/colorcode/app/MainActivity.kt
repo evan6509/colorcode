@@ -81,7 +81,7 @@ class MainActivity : Activity() {
             insets
         }
         setContentView(scroll)
-        root.addView(label("ColorCode", 30, ink))
+        root.addView(label(applicationInfo.loadLabel(packageManager).toString(), 30, ink))
         root.addView(label("More color. More room for your data.", 16, muted))
         root.addView(label("ON-DEVICE CODES  •  FOUR DATA COLORS", 12, Color.rgb(0, 116, 104)))
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
@@ -332,7 +332,7 @@ class MainActivity : Activity() {
         val grid = madeGrid
         val app = applicationContext
         background("Preparing PNG…", {
-            val store = SharedPngStore(File(app.filesDir, "shared-png"))
+            val store = SharedPngStore(File(app.filesDir, "shared-png"), authority = "${app.packageName}.share")
             store.cleanup { app.revokeUriPermission(Uri.parse(it), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             val bitmap = makeBitmap(bytes, grid)
             try {

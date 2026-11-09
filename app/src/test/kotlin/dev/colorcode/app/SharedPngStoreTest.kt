@@ -38,6 +38,26 @@ class SharedPngStoreTest {
             good.replace(".png", "%2epng")).forEach { bad -> rejects { store.resolve(bad) } }
     }
 
+    @Test fun devAndPublicSharesUseSeparateAuthorities() {
+        var now = 1_000_000L
+        val root = temporary.newFolder()
+        val publicStore = SharedPngStore(root, clock = { now })
+        val devStore = SharedPngStore(root, clock = { now }, authority = "dev.colorcode.app.dev.share")
+        val publicUri = publicStore.create { it.write(1) }
+        val devUri = devStore.create { it.write(2) }
+        assertTrue(devUri.startsWith("content://dev.colorcode.app.dev.share/"))
+        assertArrayEquals(byteArrayOf(2), devStore.resolve(devUri).readBytes())
+        rejects { devStore.resolve(publicUri) }
+        rejects { publicStore.resolve(devUri) }
+        rejects { devStore.resolve(devUri.replace(".dev.share", "XdevXshare")) }
+
+        now += SharedPngStore.LIFETIME_MS
+        val revoked = mutableListOf<String>()
+        devStore.cleanup { revoked.add(it) }
+        assertTrue(devUri in revoked)
+        assertTrue(revoked.all { it.startsWith("content://dev.colorcode.app.dev.share/") })
+    }
+
     @Test fun symlinkCannotEscapePrivateRoot() {
         val store = SharedPngStore(temporary.newFolder())
         val uri = store.create { it.write(1) }

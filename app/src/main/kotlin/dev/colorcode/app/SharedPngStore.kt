@@ -12,8 +12,11 @@ import java.util.UUID
 internal class SharedPngStore(
     private val root: File,
     private val clock: () -> Long = System::currentTimeMillis,
-    private val nextToken: () -> String = { UUID.randomUUID().toString().replace("-", "") }
+    private val nextToken: () -> String = { UUID.randomUUID().toString().replace("-", "") },
+    private val authority: String = AUTHORITY
 ) {
+    private val uriPattern = Regex("content://${Regex.escape(authority)}/[a-f0-9]{32}\\.png")
+
     fun create(write: (OutputStream) -> Unit): String {
         val directory = directory()
         repeat(32) {
@@ -36,7 +39,7 @@ internal class SharedPngStore(
     fun resolve(uri: String): File {
         // Validate the entire raw URI. Encoded separators, dot segments, query/fragment,
         // user info, ports, alternative authorities/schemes and extra segments are rejected.
-        if (!URI.matches(uri)) throw FileNotFoundException("Invalid share URI")
+        if (!uriPattern.matches(uri)) throw FileNotFoundException("Invalid share URI")
         val file = contained(uri.substringAfterLast('/')) ?: throw FileNotFoundException()
         if (expired(file)) throw FileNotFoundException("Shared PNG expired; create a new share")
         return file
@@ -74,12 +77,11 @@ internal class SharedPngStore(
         return created <= 0 || created > now || now - created >= LIFETIME_MS
     }
 
-    private fun uri(name: String) = "content://$AUTHORITY/$name"
+    private fun uri(name: String) = "content://$authority/$name"
 
     companion object {
         const val AUTHORITY = "dev.colorcode.app.share"
         const val LIFETIME_MS = 7L * 24 * 60 * 60 * 1000
         private val NAME = Regex("[a-f0-9]{32}\\.png")
-        private val URI = Regex("content://dev\\.colorcode\\.app\\.share/[a-f0-9]{32}\\.png")
     }
 }

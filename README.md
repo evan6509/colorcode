@@ -8,6 +8,8 @@ Each share now creates a separate immutable PNG in private app storage with a ra
 
 Encoding, file import, image decode and exports retain their work queue across activity rotation and deliver results to the resumed activity. Camera JPEGs must match their tagged request's sensor timestamp, including when image and metadata callbacks arrive out of order. Each camera capture is a separate private retry file, removed only after a verified decode is delivered; a failed decode offers **Retry last photo**. Work retention covers configuration changes, not durable execution after process death. A saved camera retry filename can be restored from the activity bundle.
 
+Debug builds install as **ColorCode Dev**, separately from the public **ColorCode** release app. They keep separate saved data and sharing permissions. GitHub update checks are enabled only in release builds; see [release setup and legacy-install migration](.github/RELEASING.md).
+
 ## Run the checks offline
 
 ```bash
@@ -21,7 +23,7 @@ scripts/test-packaged-core.sh
 
 These scripts use installed tools and local caches without downloads. The core script compiles and runs the core JUnit tests, uses separate JVM processes to write/read a PNG, and measures maximum-size PNG round trips. The SDK build compiles the actual app and core against Android 36, packages resources, dexes the app with Kotlin's runtime, aligns the APK and verifies its debug signature. It does not install the APK. The last script reruns the tests against the exact core classes and Kotlin runtime used as dex inputs, on the JVM; it does not run the Android UI.
 
-The app host script runs 23 additional JVM regressions against the production storage, retained-work and camera-matching helpers. These cover unchanged bytes at the first shared URI after a second share, traversal and symlink rejection, expiry/revocation, rotation completion delivery, camera retry input and stale capture callbacks. They do not execute Android lifecycle, URI permission or Camera2 APIs. See [review-fix evidence](evidence/review-fixes/README.md) for the preserved 12-failure red run, 16-test green run and final results.
+The app host script runs 24 additional JVM regressions against the production storage, retained-work and camera-matching helpers. These cover separate public/Dev share authorities, unchanged bytes at the first shared URI after a second share, traversal and symlink rejection, expiry/revocation, rotation completion delivery, camera retry input and stale capture callbacks. They do not execute Android lifecycle, URI permission or Camera2 APIs. See [review-fix evidence](evidence/review-fixes/README.md) for the preserved 12-failure red run, 16-test green run and final results.
 
 The local debug APK is `app/build/sdk-offline/colorcode-debug.apk`. Its disposable signing key is under the same ignored build directory; this is not a release build. Minimum Android API is 26, target API is 36.
 

@@ -7,6 +7,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "dev.colorcode.app"
+        manifestPlaceholders["appLabel"] = "ColorCode"
         minSdk = 26
         targetSdk = 36
         versionCode = providers.environmentVariable("COLORCODE_VERSION_CODE").orNull?.toInt() ?: 1
@@ -21,6 +22,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appLabel"] = "ColorCode Dev"
+        }
         release { signingConfig = signingConfigs.getByName("published") }
     }
     compileOptions {

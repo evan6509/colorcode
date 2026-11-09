@@ -12,7 +12,11 @@ import java.io.FileNotFoundException
 /** Read-only access to one immutable PNG per explicitly granted URI. */
 class ShareProvider : ContentProvider() {
     override fun onCreate() = true
-    private fun file(uri: Uri) = SharedPngStore(java.io.File(requireNotNull(context).filesDir, "shared-png")).resolve(uri.toString())
+    private fun file(uri: Uri): java.io.File {
+        val app = requireNotNull(context)
+        return SharedPngStore(java.io.File(app.filesDir, "shared-png"), authority = "${app.packageName}.share")
+            .resolve(uri.toString())
+    }
     override fun getType(uri: Uri): String { file(uri); return "image/png" }
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         if (mode != "r") throw FileNotFoundException("Read-only provider")
