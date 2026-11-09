@@ -2,6 +2,14 @@
 
 A push to `main`, including a reviewed merge, runs tests and publishes a signed APK as a GitHub release. Other branches and pull requests run checks without publishing. Keep development on `codex/development`; pushing and merging require explicit authorization.
 
+## Public and development apps
+
+Release builds install as **ColorCode** (`dev.colorcode.app`) and use GitHub release updates. Debug builds install separately as **ColorCode Dev** (`dev.colorcode.app.dev`), with a `-dev` version suffix and update checks disabled. Both apps can coexist; their saved files, permissions and PNG sharing providers are separate. The offline SDK build also creates the Dev app.
+
+Older debug builds used the public app ID. Installing ColorCode Dev preserves that older installation and its files; it does not convert the older app into a signed public release. A public release signed with a different key cannot replace that legacy debug installation in place. Back up its data before any replacement; uninstalling it requires explicit approval. Keep the permanent release signing key for the public app.
+
+## Signing and publication
+
 Before the first release, create and securely back up a dedicated Android signing keystore. Add these repository Actions secrets: `COLORCODE_KEYSTORE_BASE64` (the complete base64-encoded keystore), `COLORCODE_KEYSTORE_PASSWORD`, `COLORCODE_KEY_ALIAS`, `COLORCODE_KEY_PASSWORD`, and `COLORCODE_CERT_SHA256` (the colon-separated SHA-256 certificate fingerprint printed by `keytool -list -v`). Never commit the keystore or passwords. All releases must use the same signing key; losing or changing it prevents Android from installing subsequent APKs as updates. The fingerprint check detects an accidental change only if the expected fingerprint remains unchanged. Existing debug installations with a different signing key cannot be updated in place; back up data before replacing them.
 
 The first automatic release is `v0.1.0`, Android version code 1; each later release increments the patch and version code. Set `next_version` in `.github/release-version.json` to a higher semantic version to choose the next version; a previously published request is consumed automatically. Every stable release must retain its hidden version-code marker in its notes, and published version tags must remain available. Inconsistent history fails the workflow instead of silently producing an unupdatable APK. Rerunning a published commit reuses its release.

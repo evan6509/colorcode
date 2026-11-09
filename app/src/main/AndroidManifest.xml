@@ -5,7 +5,7 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
-    <application android:label="ColorCode" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true" android:icon="@drawable/ic_code">
+    <application android:label="${appLabel}" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true" android:icon="@drawable/ic_code">
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -13,6 +13,6 @@
             </intent-filter>
         </activity>
         <activity android:name=".CameraActivity" android:exported="false" />
-        <provider android:name=".ShareProvider" android:authorities="dev.colorcode.app.share" android:exported="false" android:grantUriPermissions="true" />
+        <provider android:name=".ShareProvider" android:authorities="${applicationId}.share" android:exported="false" android:grantUriPermissions="true" />
     </application>
 </manifest>

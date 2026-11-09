@@ -26,11 +26,15 @@ echo 'Compiling and linking Android resources'
 python3 - <<'PY'
 from pathlib import Path
 source = Path('app/src/main/AndroidManifest.xml').read_text()
-Path('app/build/sdk-offline/AndroidManifest.xml').write_text(source.replace('<manifest ', '<manifest package="dev.colorcode.app" ', 1))
+# Match Gradle's debug identity while retaining the production Kotlin namespace.
+source = source.replace('${appLabel}', 'ColorCode Dev').replace('${applicationId}', 'dev.colorcode.app.dev')
+for component in ('MainActivity', 'CameraActivity', 'ShareProvider'):
+    source = source.replace(f'android:name=".{component}"', f'android:name="dev.colorcode.app.{component}"')
+Path('app/build/sdk-offline/AndroidManifest.xml').write_text(source.replace('<manifest ', '<manifest package="dev.colorcode.app.dev" ', 1))
 PY
 "$build_tools/aapt2" link -o "$out/resources.apk" -I "$platform" \
     --manifest "$out/AndroidManifest.xml" --min-sdk-version 26 --target-sdk-version 36 \
-    --debug-mode --version-code 1 --version-name 0.1.0 --java "$out/generated" "$out/resources.zip"
+    --debug-mode --version-code 1 --version-name 0.1.0-dev --java "$out/generated" "$out/resources.zip"
 echo 'Dexing application and Kotlin runtime'
 "$build_tools/d8" --lib "$platform" --min-api 26 --output "$out/dex" "$out/classes.jar" "$stdlib"
 python3 - <<'PY'
