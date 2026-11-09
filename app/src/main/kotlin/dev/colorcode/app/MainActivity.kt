@@ -97,7 +97,7 @@ class MainActivity : Activity() {
         maker = card(); reader = card()
         root.addView(maker); root.addView(reader)
         buildMaker(); buildReader()
-        text.setText(state?.getString("text") ?: "Color is data. 🌈")
+        text.setText(state?.getString("text") ?: DEFAULT_TEXT)
         fileBytes = state?.getByteArray("file"); fileName = state?.getString("name") ?: fileName
         size.setSelection(state?.getInt("size") ?: 0)
         updateSource()
@@ -112,6 +112,18 @@ class MainActivity : Activity() {
                 // An older restored preview must not replace an encode completed during rotation.
                 if (madeBytes?.contentEquals(bytes) == true && madeGrid == grid) showBitmap(it, bytes, grid, announce = false)
                 else it.recycle()
+            }
+        }
+        if (madeBytes == null && retained == null) {
+            val store = LastCodeStore(File(filesDir, "last-code"))
+            val sample = DEFAULT_TEXT.toByteArray(Charsets.UTF_8)
+            background("", {
+                val code = store.load() ?: LastCodeStore.Code(sample, 57)
+                code to makeBitmap(code.bytes, code.grid)
+            }, discard = { it.second.recycle() }) { (code, bitmap) ->
+                // A retained encode may have completed before this restore was delivered.
+                if (madeBytes == null) showBitmap(bitmap, code.bytes, code.grid, announce = false)
+                else bitmap.recycle()
             }
         }
         showPage(state?.getInt("page") ?: 0)
@@ -182,7 +194,12 @@ class MainActivity : Activity() {
         maker.addView(button("Create code") {
             val bytes = fileBytes?.copyOf() ?: text.text.toString().toByteArray(Charsets.UTF_8)
             val grid = ColorCode.grids[size.selectedItemPosition]
-            background("Encoding ${bytes.size} bytes…", { makeBitmap(bytes, grid) }, discard = { it.recycle() }) { showBitmap(it, bytes, grid) }
+            val store = LastCodeStore(File(filesDir, "last-code"))
+            background("Encoding ${bytes.size} bytes…", {
+                val bitmap = makeBitmap(bytes, grid)
+                try { store.save(bytes, grid); bitmap }
+                catch (e: Exception) { bitmap.recycle(); throw e }
+            }, discard = { it.recycle() }) { showBitmap(it, bytes, grid) }
         })
         maker.addView(label("Last created code", 14, ink))
         preview = ImageView(this).apply {
@@ -395,6 +412,7 @@ class MainActivity : Activity() {
         text = value; isAllCaps = false; setOnClickListener { action() }; actions.add(this)
     }
     companion object {
+        private const val DEFAULT_TEXT = "Color is data. 🌈"
         private const val OPEN_BINARY = 10; private const val OPEN_IMAGE = 11; private const val SAVE_PNG = 12
         private const val SAVE_DATA = 13; private const val CAMERA = 14; private const val CAMERA_PERMISSION = 15
     }

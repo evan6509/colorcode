@@ -14,10 +14,13 @@ mapfile -t tests < <(find app/src/test/kotlin -name '*.kt' ! -name 'ReleaseUpdat
 "$JAVA_HOME/bin/java" -cp "$KOTLIN_LIB_DIR/*" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
     -no-stdlib -no-reflect -jvm-target 17 -classpath "$stdlib:$junit:$hamcrest" \
     -d app/build/host-tests/tests.jar \
+    core/src/main/kotlin/dev/colorcode/core/*.kt \
+    app/src/main/kotlin/dev/colorcode/app/LastCodeStore.kt \
     app/src/main/kotlin/dev/colorcode/app/SharedPngStore.kt \
     app/src/main/kotlin/dev/colorcode/app/RetainedWork.kt \
     app/src/main/kotlin/dev/colorcode/app/CameraFiles.kt \
     app/src/main/kotlin/dev/colorcode/app/CaptureMatcher.kt "${tests[@]}"
 "$JAVA_HOME/bin/java" -cp "app/build/host-tests/tests.jar:$stdlib:$junit:$hamcrest" \
     org.junit.runner.JUnitCore dev.colorcode.app.SharedPngStoreTest \
-    dev.colorcode.app.RetainedWorkTest dev.colorcode.app.CaptureMatcherTest dev.colorcode.app.CameraFilesTest
+    dev.colorcode.app.RetainedWorkTest dev.colorcode.app.CaptureMatcherTest dev.colorcode.app.CameraFilesTest \
+    dev.colorcode.app.LastCodeStoreTest

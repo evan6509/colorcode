@@ -12,3 +12,11 @@ These are pending checks, not recorded passes. No APK was installed during the s
 8. For a real optical density comparison, generate standard QR-L v10/v18/v28 using an independent validated QR encoder, with the same physical area and quiet-zone allocation. Compare payload and failure rates across devices and conditions. Also compare ECC strengths explicitly; the current digital comparison does not equalize optical robustness.
 
 Do not interpret the existing synthetic JPEG, blur, projective or color-cast tests as these device/print results.
+
+## Fresh-launch preview
+
+- With no saved code, launch the app and confirm the sample preview appears without tapping Create code.
+- Create a code with different text and a binary payload at each grid size. Close the app, remove it from recents, and reopen it; confirm Last created code matches and Save PNG/Share PNG become available.
+- Force-stop and relaunch, then export/decode the restored preview and compare its exact bytes with the original payload.
+- Rotate while the launch preview is being restored and while a new code is being generated; confirm the newest completed code remains visible.
+- The fresh-launch editor resets to its default input; confirm editing it leaves Last created code intact until Create code is tapped.
