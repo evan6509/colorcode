@@ -15,6 +15,8 @@ Do not interpret the existing synthetic JPEG, blur, projective or color-cast tes
 
 ## Fresh-launch preview
 
+The sample launch, custom text on an 89 × 89 grid, three force-stop relaunches, and Home/return passed on a Pixel 7 on 2026-11-08. Restored screen previews decoded to the exact payload and matched pixel-for-pixel; see [the verification record](../evidence/fresh-launch/README.md). The remaining combinations below still need testing.
+
 - With no saved code, launch the app and confirm the sample preview appears without tapping Create code.
 - Create a code with different text and a binary payload at each grid size. Close the app, remove it from recents, and reopen it; confirm Last created code matches and Save PNG/Share PNG become available.
 - Force-stop and relaunch, then export/decode the restored preview and compare its exact bytes with the original payload.
