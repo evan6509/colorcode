@@ -2,6 +2,8 @@ package dev.colorcode.core
 
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
 import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -9,9 +11,14 @@ import java.util.Random
 import javax.imageio.ImageIO
 import kotlin.math.*
 
-class ImageReaderTest {
+@RunWith(Parameterized::class)
+class ImageReaderTest(private val formatVersion: Int) {
+    companion object {
+        @JvmStatic @Parameterized.Parameters(name = "format {0}")
+        fun versions() = listOf(arrayOf(1), arrayOf(2))
+    }
     private val payload = ByteArray(580).also { Random(388).nextBytes(it) }
-    private fun image() = SquareRenderer.render(ColorCode.encode(payload), 8)
+    private fun image() = SquareRenderer.render(ColorCode.encode(payload, formatVersion = formatVersion), 8)
     private fun assertDecoded(image: Raster) = assertArrayEquals(payload, ColorCode.decode(image).bytes)
     private fun rejects(block: () -> Unit) { try { block(); fail("Expected CodeException") } catch (_: CodeException) {} }
 
@@ -40,8 +47,8 @@ class ImageReaderTest {
     }
     @Test fun perspectiveForLargerGrids() {
         for (grid in listOf(89, 129)) {
-            val bytes = ByteArray(ColorCode.capacity(grid)) { (it * 47).toByte() }
-            val im = SquareRenderer.render(ColorCode.encode(bytes, grid), 5)
+            val bytes = ByteArray(ColorCode.capacity(grid, formatVersion)) { (it * 47).toByte() }
+            val im = SquareRenderer.render(ColorCode.encode(bytes, grid, formatVersion = formatVersion), 5)
             val warped = warp(im, doubleArrayOf(0.86, 0.035, 35.0, 0.02, 0.88, 28.0, 0.00004, 0.00002))
             assertArrayEquals(bytes, ColorCode.decode(warped).bytes)
         }
