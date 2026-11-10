@@ -1,71 +1,87 @@
 # ColorCode for Android
 
-An offline Android maker and custom reader for **ColorCode**, a nonstandard four-color code (blue, teal, red and yellow) with a QR-like square appearance. It stores the bytes themselves, including UTF-8 text and arbitrary binary data. Standard QR readers cannot read it.
+ColorCode is an Android app for creating and reading a custom, QR-like color code. It stores UTF-8 text or arbitrary binary data. Standard QR readers cannot read it.
 
-The app includes text/file input, explicit grid selection, byte counts, a preview, lossless PNG saving/sharing, image import, Camera2 photo acquisition, checksum-verified results, strict UTF-8 display or a hex preview, and exact binary export. The camera is a **capture-and-read** flow, not continuous scanning. It needs camera permission; file access uses Android's document picker. Release builds use Internet access to check GitHub for app updates and download an APK when requested. Payloads remain on-device; there is no backend or external payload store. See [release setup](.github/RELEASING.md).
+## Features
 
-Fresh launches restore the last successfully created code from private app storage, including its exact bytes and grid size. The sample code appears when no saved code is available. The text/file editor still starts with its default input on a fresh launch; the preview is labeled **Last created code**. Unfinished background work remains non-durable.
+- Create four-color codes from text or files; choose a grid and see the byte capacity.
+- Save or share lossless PNGs. Import an image or capture a photo to read a code.
+- Verify decoded data with error correction and a checksum, then display text or a hex preview, or export the original bytes.
+- Read both four-color format 1 and existing five-color format 2 codes. New codes use format 1.
+- Keep payloads on-device. Release builds use the internet to check for GitHub updates and download an APK when requested.
 
-Each share now creates a separate immutable PNG in private app storage with a random UUID token. The provider accepts only that exact URI shape and checks filesystem containment. Share links expire after seven days; expired grants are revoked and files removed on a subsequent share. Live files are never truncated or removed by this cleanup. Use Save PNG for a permanent copy. Legacy static-filename URIs are rejected.
+The camera uses a capture-and-read flow, not continuous scanning. Camera access requires permission; file access uses Android's document picker.
 
-Encoding, file import, image decode and exports retain their work queue across activity rotation and deliver results to the resumed activity. Camera JPEGs must match their tagged request's sensor timestamp, including when image and metadata callbacks arrive out of order. Each camera capture is a separate private retry file, removed only after a verified decode is delivered; a failed decode offers **Retry last photo**. Work retention covers configuration changes, not durable execution after process death. A saved camera retry filename can be restored from the activity bundle.
+## Install and build
 
-Debug builds install as **ColorCode Dev**, separately from the public **ColorCode** release app. They keep separate saved data and sharing permissions. GitHub update checks are enabled only in release builds; see [release setup and legacy-install migration](.github/RELEASING.md).
+ColorCode requires Android 8.0 (API 26) or newer and targets API 36. Debug builds install separately as **ColorCode Dev**, with their own data and sharing permissions. Update checks run only in release builds. See [release setup and legacy-install migration](.github/RELEASING.md).
 
-## Run the checks offline
+For development, install JDK 17 and Android SDK platform 36, then set `JAVA_HOME` and `ANDROID_HOME`. The project uses Gradle 8.13, Android Gradle Plugin 8.13.0, and Kotlin 2.2.21.
 
 ```bash
-export JAVA_HOME=/home/evan/.local/jdks/colorcode-jdk17/jdk-17.0.21+9
-export ANDROID_HOME=/home/evan/.local/share/android-sdk
+./gradlew :core:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+```
+
+Add `--offline` when the wrapper and dependencies are cached. The debug APK is under `app/build/outputs/apk/debug/`. Building does not install it.
+
+### Offline fallback
+
+The scripts below use installed tools and cached dependencies without downloads. They were written for a Linux environment: override their `/home/evan/...` defaults with `JAVA_HOME` and `ANDROID_HOME`. They also require Bash `mapfile` and `sort -V`, which default macOS tools do not provide. The SDK build requires platform 36 and build-tools 36.0.0. See the [Mac adaptations used for verification](evidence/fresh-launch/README.md).
+
+```bash
 scripts/test-core.sh
 scripts/test-app-host.sh
 scripts/build-android-offline.sh
 scripts/test-packaged-core.sh
 ```
 
-These scripts use installed tools and local caches without downloads. The core script compiles and runs the core JUnit tests, uses separate JVM processes to write/read a PNG, and measures maximum-size PNG round trips. The SDK build compiles the actual app and core against Android 36, packages resources, dexes the app with Kotlin's runtime, aligns the APK and verifies its debug signature. It does not install the APK. The last script reruns the tests against the exact core classes and Kotlin runtime used as dex inputs, on the JVM; it does not run the Android UI.
+- Core tests include separate-process PNG round trips and maximum-capacity measurements.
+- App host tests cover storage, retained work, share handling, and camera matching; they do not execute Android APIs.
+- The SDK build compiles and signs a debug APK at `app/build/sdk-offline/colorcode-debug.apk`, using a disposable key in the ignored build directory.
+- The final script tests the packaged core classes on the JVM; it does not run the Android UI.
 
-The app host script runs 28 additional JVM regressions against the production storage, retained-work and camera-matching helpers. These cover last-code storage and preview reconstruction, missing/corrupt saved state, separate public/Dev share authorities, unchanged bytes at the first shared URI after a second share, traversal and symlink rejection, expiry/revocation, rotation completion delivery, camera retry input and stale capture callbacks. They do not execute Android lifecycle, URI permission or Camera2 APIs. See [review-fix evidence](evidence/review-fixes/README.md) for the preserved 12-failure red run, 16-test green run and final results.
+The fallback uses cached Kotlin compiler, JUnit, and Hamcrest files. `KOTLIN_LIB_DIR` and `KOTLIN_STDLIB_JAR` can override compiler and runtime locations. Choose a JDK compatible with the cached compiler. The SDK build uses language/metadata 2.2 and API 2.0 with a compatible Kotlin 2.0 runtime for build-tools 36.0.0 D8.
 
-The local debug APK is `app/build/sdk-offline/colorcode-debug.apk`. Its disposable signing key is under the same ignored build directory; this is not a release build. Minimum Android API is 26, target API is 36.
+## Using the app
 
-Defaults for the supplied environment:
+- **Make:** Enter text or select a file, choose a grid, and create a code. Save PNG for a permanent copy.
+- **Read:** Import an image or take a photo. A failed camera decode offers **Retry last photo**.
+- **Share:** Each share creates a separate private PNG. Links expire after seven days; a later share removes expired files and revokes their grants.
+- **Updates:** Release builds check GitHub on launch and offer a manual check. Download and installation require user action; Android may ask for installation permission.
 
-- Android SDK: `/home/evan/.local/share/android-sdk`; override with `ANDROID_HOME`.
-- Java: `/home/evan/.local/jdks/temurin-25.0.4.1+1`; override with `JAVA_HOME`.
-- Kotlin compiler and JUnit/Hamcrest: existing Gradle caches. Override `KOTLIN_LIB_DIR` if necessary.
-- The SDK fallback uses the newer cached compiler with language/metadata 2.2, API 2.0 and a compatible cached Kotlin 2.0 runtime (`KOTLIN_STDLIB_JAR` can override it). This avoids the installed D8's inability to parse Kotlin 2.4 metadata. The older cached compiler itself cannot run on JDK 25.
+On the development branch, fresh launches restore the last successfully created code and grid, or show a sample if none is available. The editor starts with its default input. This preview restoration was added after public release v0.1.0.
 
-The normal Gradle project uses Gradle 8.13, AGP 8.13.0 and Kotlin 2.2.21. Normal commands are `./gradlew --offline :core:test :app:assembleDebug`; use these only when the wrapper distribution and dependencies are cached. An independent offline Gradle run of `:core:test :app:testDebugUnitTest :app:assembleDebug` succeeded after the review fixes. Earlier sandbox attempts encountered a file-lock networking error; the separate installed-SDK build also succeeded. See [build evidence](evidence/README.md).
+Encoding, imports, decoding, and exports retain their work across activity rotation, but not process death. Camera captures use separate retry files, and JPEGs are matched to capture timestamps. A retry filename can be restored from the activity bundle.
 
-## Code formats
+## Capacity and format
 
-New codes use the four-color format 1. The three grids hold **599, 1,591 and 3,484 bytes**, respectively. The reader also accepts existing five-color format 2 images; [Format 2](docs/FORMAT-V2.md) documents their palette, packing and capacity rules. Camera and printer reliability have not been verified.
+| Grid | Format 1 payload capacity |
+|---|---:|
+| 57 × 57 | 599 bytes |
+| 89 × 89 | 1,591 bytes |
+| 129 × 129 | 3,484 bytes |
 
-## Measured payload density (legacy format 1)
+See [format 1](docs/FORMAT.md) for layout, framing, CRC, masking, interleaving, and Reed–Solomon details. [Format 2](docs/FORMAT-V2.md) describes the five-color palette, packing, and capacities. Both use the Square 1 appearance; unknown versions are rejected. The Kotlin core has no Android, AWT, or third-party runtime dependency.
 
-Every color capacity below was encoded to a real lossless PNG, reloaded, decoded and compared byte-for-byte. Same grid, eight pixels per module and four quiet modules on each side:
+### Digital density comparison
 
-| Grid | Image pixels | ColorCode payload | Standard QR-L byte-mode budget | Ratio |
+Each ColorCode payload below was encoded to a PNG, reloaded, and decoded byte-for-byte. Images use eight pixels per module and four quiet modules per side. QR-L figures are standard byte-mode budgets, not measurements from a QR image encoder or a camera.
+
+| Grid | Image pixels | ColorCode | QR-L budget | Ratio |
 |---|---|---:|---:|---:|
 | 57 × 57 | 520 × 520 | 599 bytes | 271 bytes (v10) | 2.210× |
 | 89 × 89 | 776 × 776 | 1,591 bytes | 718 bytes (v18) | 2.216× |
 | 129 × 129 | 1096 × 1096 | 3,484 bytes | 1,528 bytes (v28) | 2.280× |
 
-The QR figures are pinned standard reference budgets with byte-mode headers, length counts, terminators and padding tested locally. A complete QR image encoder/decoder was unavailable offline, so this is a **digital payload comparison**, not a measured QR camera comparison. See [the measurement](evidence/11-core-final.txt), including payload hashes, parity overhead and the reference table link.
+The correction budgets differ: ColorCode uses 32 parity bytes per block, while these QR-L versions use 18, 30, and 30. Greater digital capacity does not establish equivalent optical robustness. See the [measurement and its limitations](evidence/11-core-final.txt).
 
-The correction budgets differ: ColorCode uses 32 parity bytes per block (16 unknown byte errors correctable), while these QR-L versions use 18/30/30 parity bytes per block (9/15/15 errors). ColorCode spends approximately 12.8–13.7% of its protected stream on parity, versus 20.0–20.8% for those QR versions. More digital capacity and these block counts do **not** establish equivalent optical robustness. Color discrimination, module size, focus, illumination and image processing matter. The capacity gain includes both two bits per colored module and different structural/ECC overhead. PNG file size is unrelated to the payload comparison.
+## Verification and limits
 
-## Format and extension
+- Automated core tests cover capacity boundaries, binary and text payloads, error correction, malformed data, PNG reloads, transformations, synthetic perspective, blur, color cast, and a JPEG conversion.
+- The first public release was installed through the update flow on a Pixel 7; a manual update check reported it was up to date. See the [release record](evidence/first-public-release/README.md).
+- A later Dev build showed the sample on fresh launch and restored custom text through three force-stop relaunches. The previews decoded to the exact bytes. See the [fresh-launch record](evidence/fresh-launch/README.md).
+- An earlier five-color development build was installed and produced a preview. See its [verification record](evidence/magenta/README.md).
 
-[FORMAT.md](docs/FORMAT.md) specifies the module layout, byte framing, CRC, mask, interleaving, Reed–Solomon field and version rules. Both formats use **Square 1** with version-specific palettes and packing. Appearance is separate from the framing version and is protected in the header. New appearances must get new IDs and renderer/reader implementations; existing Square 1 images must retain their original meaning. Unknown versions are rejected, never silently reinterpreted. Existing core API calls default to format 1; the Android maker uses format 1.
+The fresh-launch change passed the adapted SDK fallback and JVM tests. Its Gradle tasks did not run in that environment because the installed JDK 25 was incompatible with Gradle 8.13. Earlier Gradle results and other records are in [build evidence](evidence/README.md).
 
-The pure Kotlin `core` has no Android, AWT or third-party runtime dependency. AWT/ImageIO is used only by JVM tests. `ColorCode.encode`, `SquareRenderer.render`, and `ColorCode.decode` form the public byte-to-image-to-byte path. The reader detects four finders, solves a projective transform, calibrates four or five color patches, corrects byte errors and verifies framing/CRC before returning bytes.
-
-## What has and has not been verified
-
-Automated tests cover all original 24 cases, capacity edges, empty/Unicode/NUL/all-byte payloads, fixed RS parity and an independent polynomial reference, random RS corrections, interleaved bursts, malformed and unsupported headers with valid ECC, bad CRC/padding, invalid dimensions, alpha/grayscale/noise, PNG reloads, quarter turns, reflection, translation, cropped borders, a small arbitrary rotation, synthetic perspective at all sizes, mild blur, a moderate color cast and one high-quality JPEG conversion.
-
-The actual Android sources compile, resources link, dex is generated, and APK signatures verify. The five-color debug APK was installed on a Pixel 7, launched successfully, and generated the default 19-byte sample with a visible five-color preview. Existing saved files were backed up and restored byte-for-byte after replacing an older build with a different signing key. This verifies launch and code creation only; see [the verification record](evidence/magenta/README.md). The retained-work and camera-matching helpers pass JVM regressions; actual activity lifecycle, permission/file-picker/share flows, camera preview orientation/focus/capture and device image processing still need device testing. No camera or printer reliability, color-blind accessibility, low-light performance, general arbitrary-scene recognition or standard QR interoperability is claimed. Structural markers are checked strictly; RS protects data and header bytes, not damaged finders. See [device test steps](docs/DEVICE-TESTS.md).
-
-Build and test evidence is preserved under `evidence/`.
+Broader lifecycle, file-picker and sharing flows, camera behavior, and device image processing still need testing. Camera and printer reliability, low-light performance, color-blind accessibility, arbitrary-scene recognition, and QR interoperability are not established. Reed–Solomon protects data and headers, not damaged finder markers. See the [device test steps](docs/DEVICE-TESTS.md).
